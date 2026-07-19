@@ -5,15 +5,15 @@
   --color-border: #e3e7f0;
   --color-border-strong: #cdd4e3;
 
-  --color-sidebar: #111a3a;
-  --color-sidebar-hover: #1b2650;
-  --color-sidebar-active: #2563eb;
+  --color-sidebar: #10173d;
+  --color-sidebar-hover: #1b2559;
+  --color-sidebar-active: #2f3f96;
   --color-sidebar-text: #b7c0e0;
   --color-sidebar-text-active: #ffffff;
 
-  --color-primary: #2563eb;
-  --color-primary-dark: #1d4ed8;
-  --color-primary-light: #eaf0fe;
+  --color-primary: #1b2559;
+  --color-primary-dark: #131a40;
+  --color-primary-light: #e9ecf7;
   --color-accent: #0d9488;
   --color-accent-light: #e3f6f3;
 
@@ -23,8 +23,8 @@
   --color-warning-bg: #fef3e0;
   --color-danger: #dc2626;
   --color-danger-bg: #fce9e9;
-  --color-info: #2563eb;
-  --color-info-bg: #eaf0fe;
+  --color-info: #2f3f96;
+  --color-info-bg: #e9ecf7;
   --color-neutral: #64748b;
   --color-neutral-bg: #eef1f6;
 
@@ -755,4 +755,221 @@ textarea { resize: vertical; min-height: 64px; }
 @media (max-width: 860px) {
   .sidebar { position: fixed; z-index: 50; transform: translateX(-100%); transition: transform 0.2s ease; }
   .app-content { padding: 16px; }
+}
+
+/* ============ Attendance: BS calendar view (added by react-specialist) ============ */
+:root {
+  --color-calendar-holiday: #2563eb;
+  --color-calendar-holiday-bg: #e8effc;
+  --color-calendar-halfday: var(--color-accent);
+  --color-calendar-halfday-bg: var(--color-accent-light);
+  --color-calendar-saturday-bg: #fbeee9;
+}
+
+.view-toggle {
+  display: inline-flex;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  margin-left: auto;
+}
+
+.view-toggle-btn {
+  background: var(--color-surface);
+  border: none;
+  padding: 7px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.view-toggle-btn + .view-toggle-btn {
+  border-left: 1px solid var(--color-border-strong);
+}
+
+.view-toggle-btn.is-active {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.bs-calendar {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+}
+
+.bs-calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.bs-calendar-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.bs-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+
+.bs-calendar-weekdays {
+  margin-bottom: 6px;
+}
+
+.bs-calendar-weekday {
+  text-align: center;
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+  padding: 4px 0;
+}
+
+.bs-calendar-weekday.is-saturday {
+  color: var(--color-danger);
+}
+
+.bs-calendar-cell {
+  min-height: 84px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 6px;
+  background: var(--color-bg);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bs-calendar-cell.is-empty {
+  background: transparent;
+  border: none;
+}
+
+.bs-calendar-cell.is-saturday {
+  background: var(--color-calendar-saturday-bg);
+}
+
+.bs-calendar-cell.is-today {
+  border-color: var(--color-primary);
+  box-shadow: inset 0 0 0 1px var(--color-primary);
+}
+
+.bs-calendar-cell.is-clickable {
+  cursor: pointer;
+}
+
+.bs-calendar-cell.is-clickable:hover {
+  border-color: var(--color-border-strong);
+  background: var(--color-primary-light);
+}
+
+.bs-calendar-cell-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.bs-calendar-day-number {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.bs-calendar-ad-date {
+  font-size: 10.5px;
+  color: var(--text-muted);
+}
+
+.bs-calendar-dots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-top: auto;
+}
+
+.bs-calendar-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  background: var(--color-neutral);
+}
+
+.bs-cal-dot-present { background: var(--color-success); }
+.bs-cal-dot-absent { background: var(--color-danger); }
+.bs-cal-dot-leave { background: var(--color-warning); }
+.bs-cal-dot-holiday { background: var(--color-calendar-holiday); }
+.bs-cal-dot-halfday { background: var(--color-calendar-halfday); }
+
+.bs-calendar-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 14px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.bs-calendar-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+@media (max-width: 640px) {
+  .bs-calendar-grid { gap: 3px; }
+  .bs-calendar-cell { min-height: 56px; padding: 4px; }
+  .bs-calendar-ad-date { display: none; }
+}
+
+/* ---------- Yango Sync (DailyLogs) ---------- */
+
+.yango-unconfigured-notice {
+  margin: -6px 0 12px;
+}
+
+.yango-rider-picklist {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  margin-top: 6px;
+}
+
+.yango-progress {
+  padding: 10px 0 4px;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--color-primary-light);
+  overflow: hidden;
+  margin: 8px 0 4px;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: var(--color-primary);
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+.yango-driver-selected {
+  color: var(--color-primary-dark);
+  font-weight: 700;
 }

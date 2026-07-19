@@ -3,7 +3,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/auth";
 import { useToast, apiErrorMessage } from "@/contexts/toast";
-import type { Paginated, Rider, RiderListItem, RiderStats } from "@/lib/types";
+import type {
+  Paginated,
+  Rider,
+  RiderListItem,
+  RiderStats,
+  YangoDriversResponse,
+  YangoStatus,
+} from "@/lib/types";
 import { DataTable, type Column } from "@/components/DataTable";
 import { Pagination } from "@/components/Pagination";
 import { Modal } from "@/components/Modal";
@@ -28,6 +35,8 @@ export function Riders() {
   const [deleteTarget, setDeleteTarget] = useState<RiderListItem | null>(null);
   const [yangoRider, setYangoRider] = useState<RiderListItem | null>(null);
   const [yangoId, setYangoId] = useState("");
+  const [yangoDriverName, setYangoDriverName] = useState("");
+  const [yangoSearch, setYangoSearch] = useState("");
 
   const canCreate = hasPermission("riders", "create");
   const canEdit = hasPermission("riders", "edit");
@@ -97,7 +106,24 @@ export function Riders() {
       void qc.invalidateQueries({ queryKey: ["riders"] });
       setYangoRider(null);
     },
+    // Surfaces both validation errors and the 409 "already linked to <rider>" conflict.
     onError: (err) => toast.error(apiErrorMessage(err, "Could not link Yango driver.")),
+  });
+
+  // Driver picker: falls back to the paste-an-id input when the integration
+  // has no credentials configured (GET /drivers/ would 503 in that case).
+  const yangoStatusQuery = useQuery({
+    queryKey: ["yango", "status"],
+    queryFn: () => api.get<YangoStatus>("/api/yango/status/"),
+    enabled: Boolean(yangoRider),
+    staleTime: 60_000,
+  });
+  const yangoConfigured = yangoStatusQuery.data?.configured ?? false;
+
+  const yangoDriversQuery = useQuery({
+    queryKey: ["yango", "drivers", yangoSearch],
+    queryFn: () => api.get<YangoDriversResponse>("/api/yango/drivers/", { q: yangoSearch || undefined }),
+    enabled: Boolean(yangoRider) && yangoConfigured,
   });
 
   const closeModal = () => {
@@ -149,6 +175,8 @@ export function Riders() {
               e.stopPropagation();
               setYangoRider(r);
               setYangoId("");
+              setYangoDriverName("");
+              setYangoSearch("");
             }}
           >
             Link
@@ -209,15 +237,19 @@ export function Riders() {
         <div className="kpi-card">
           <div className="kpi-label">Total rides</div>
           <div className="kpi-value">{statsQuery.data?.total_rides ?? "-"}</div>
-          <div className={`kpi-sub ${statsQuery.data && statsQuery.data.growth.rides >= 0 ? "positive" : "negative"}`}>
-            {statsQuery.data ? `${statsQuery.data.growth.rides >= 0 ? "+" : ""}${statsQuery.data.growth.rides.toFixed(1)}%` : ""}
+          <div className={`kpi-sub ${(statsQuery.data?.growth.rides ?? 0) >= 0 ? "positive" : "negative"}`}>
+            {statsQuery.data?.growth.rides != null
+              ? `${statsQuery.data.growth.rides >= 0 ? "+" : ""}${statsQuery.data.growth.rides.toFixed(1)}%`
+              : ""}
           </div>
         </div>
         <div className="kpi-card">
           <div className="kpi-label">Total income</div>
           <div className="kpi-value"><Currency value={statsQuery.data?.total_income} /></div>
-          <div className={`kpi-sub ${statsQuery.data && statsQuery.data.growth.income >= 0 ? "positive" : "negative"}`}>
-            {statsQuery.data ? `${statsQuery.data.growth.income >= 0 ? "+" : ""}${statsQuery.data.growth.income.toFixed(1)}%` : ""}
+          <div className={`kpi-sub ${(statsQuery.data?.growth.income ?? 0) >= 0 ? "positive" : "negative"}`}>
+            {statsQuery.data?.growth.income != null
+              ? `${statsQuery.data.growth.income >= 0 ? "+" : ""}${statsQuery.data.growth.income.toFixed(1)}%`
+              : ""}
           </div>
         </div>
         <div className="kpi-card">
@@ -302,10 +334,55 @@ export function Riders() {
           </>
         }
       >
-        <label className="form-field">
-          <span className="form-label">Yango driver ID</span>
-          <input value={yangoId} onChange={(e) => setYangoId(e.target.value)} placeholder="Paste Yango driver ID" />
-        </label>
+        {!yangoStatusQuery.isLoading && yangoConfigured ? (
+          <div>
+            <label className="form-field">
+              <span className="form-label">Search Yango drivers</span>
+              <input
+                value={yangoSearch}
+                onChange={(e) => setYangoSearch(e.target.value)}
+                placeholder="Search by name or phone…"
+              />
+            </label>
+            {yangoId && (
+              <p className="form-hint">
+                Selected: {yangoDriverName || yangoId} ({yangoId})
+              </p>
+            )}
+            <div className="yango-rider-picklist" style={{ marginTop: 8 }}>
+              {yangoDriversQuery.isLoading ? (
+                <p className="text-muted">Loading drivers…</p>
+              ) : (yangoDriversQuery.data?.drivers.length ?? 0) === 0 ? (
+                <p className="text-muted">No drivers found.</p>
+              ) : (
+                yangoDriversQuery.data?.drivers.map((d) => (
+                  <button
+                    type="button"
+                    key={d.driver_profile_id}
+                    className={`link-btn ${yangoId === d.driver_profile_id ? "yango-driver-selected" : ""}`}
+                    style={{ textAlign: "left" }}
+                    onClick={() => {
+                      setYangoId(d.driver_profile_id);
+                      setYangoDriverName(d.name);
+                    }}
+                  >
+                    {d.name} — {(d.phones ?? []).join(", ") || d.driver_profile_id}
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        ) : (
+          <label className="form-field">
+            <span className="form-label">Yango driver ID</span>
+            <input value={yangoId} onChange={(e) => setYangoId(e.target.value)} placeholder="Paste Yango driver ID" />
+            {!yangoStatusQuery.isLoading && !yangoConfigured && (
+              <span className="form-hint">
+                Yango integration is not configured — paste the driver ID directly.
+              </span>
+            )}
+          </label>
+        )}
       </Modal>
     </div>
   );

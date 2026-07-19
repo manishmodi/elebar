@@ -57,6 +57,17 @@ export function useToast(): ToastContextValue {
 export function apiErrorMessage(err: unknown, fallback = "Something went wrong"): string {
   if (err && typeof err === "object" && "detail" in err) {
     const detail = (err as { detail?: unknown }).detail;
+    const errors = (err as { errors?: unknown }).errors;
+    // Surface field-level validation details, not just "Validation failed."
+    if (errors && typeof errors === "object") {
+      const parts = Object.entries(errors as Record<string, unknown>)
+        .slice(0, 3)
+        .map(([field, msgs]) => {
+          const msg = Array.isArray(msgs) ? String(msgs[0]) : String(msgs);
+          return field === "non_field_errors" ? msg : `${field.replace(/_/g, " ")}: ${msg}`;
+        });
+      if (parts.length) return parts.join(" · ");
+    }
     if (typeof detail === "string" && detail) return detail;
   }
   if (err instanceof Error && err.message) return err.message;

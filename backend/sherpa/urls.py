@@ -3,7 +3,6 @@ from django.http import JsonResponse
 from django.urls import include, path
 
 from apps.common.storage_views import StorageObjectView, StorageUploadView
-from apps.operations import yango_views
 
 
 def healthz(request):
@@ -18,9 +17,9 @@ api_patterns = [
     path("", include("apps.payroll.urls")),
     path("storage/upload/", StorageUploadView.as_view(), name="storage-upload"),
     path("storage/objects/uploads/<str:name>", StorageObjectView.as_view(), name="storage-object"),
-    path("yango/status/", yango_views.YangoStatusView.as_view(), name="yango-status"),
-    path("yango/drivers/", yango_views.YangoDriversView.as_view(), name="yango-drivers"),
-    path("yango/riders/<uuid:uuid>/link/", yango_views.YangoRiderLinkView.as_view(), name="yango-rider-link"),
+    path("yango/", include("apps.operations.yango_urls")),
+    # Rider-app service-token plane (bearer FLEET_SERVICE_TOKEN, not JWT).
+    path("fleet/v1/", include("apps.operations.fleet_v1_urls")),
 ]
 
 urlpatterns = [

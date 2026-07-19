@@ -23,7 +23,7 @@ echo "==> Pulling images"
 $COMPOSE pull api web
 
 echo "==> Bringing up datastores"
-$COMPOSE up -d db redis
+$COMPOSE up -d db redis rabbitmq
 
 # Run migrations in a one-off api container BEFORE rolling services.
 echo "==> Migrating database"

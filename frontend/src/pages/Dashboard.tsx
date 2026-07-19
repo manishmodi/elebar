@@ -61,17 +61,28 @@ export function Dashboard() {
           <h3>Daily income trend</h3>
           <DateRangeFilter value={range} onChange={setRange} />
         </div>
-        {stats?.growth && (
+        {/* each metric is null when the previous period has no baseline */}
+        {stats?.growth && (stats.growth.income != null || stats.growth.rides != null) && (
           <p className="kpi-sub" style={{ marginBottom: 10 }}>
-            Income growth: <strong className={stats.growth.income >= 0 ? "text-success" : "text-danger"}>
-              {stats.growth.income >= 0 ? "+" : ""}
-              {stats.growth.income.toFixed(1)}%
-            </strong>{" "}
-            &middot; Rides growth:{" "}
-            <strong className={stats.growth.rides >= 0 ? "text-success" : "text-danger"}>
-              {stats.growth.rides >= 0 ? "+" : ""}
-              {stats.growth.rides.toFixed(1)}%
-            </strong>
+            {stats.growth.income != null && (
+              <>
+                Income growth:{" "}
+                <strong className={stats.growth.income >= 0 ? "text-success" : "text-danger"}>
+                  {stats.growth.income >= 0 ? "+" : ""}
+                  {stats.growth.income.toFixed(1)}%
+                </strong>
+              </>
+            )}
+            {stats.growth.income != null && stats.growth.rides != null && <> &middot; </>}
+            {stats.growth.rides != null && (
+              <>
+                Rides growth:{" "}
+                <strong className={stats.growth.rides >= 0 ? "text-success" : "text-danger"}>
+                  {stats.growth.rides >= 0 ? "+" : ""}
+                  {stats.growth.rides.toFixed(1)}%
+                </strong>
+              </>
+            )}
           </p>
         )}
         <div style={{ width: "100%", height: 320 }}>
@@ -89,7 +100,7 @@ export function Dashboard() {
                     name === "income" ? [formatCurrency(value), "Income"] : [value, "Rides"]
                   }
                 />
-                <Line type="monotone" dataKey="income" stroke="#2563eb" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="income" stroke="#2f3f96" strokeWidth={2} dot={false} />
                 <Line type="monotone" dataKey="rides" stroke="#0d9488" strokeWidth={2} dot={false} />
               </LineChart>
             </ResponsiveContainer>

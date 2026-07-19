@@ -1,3 +1,4 @@
+import { Logo } from "@/components/Logo";
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/auth";
@@ -28,9 +29,8 @@ export function Login() {
   return (
     <div className="login-page">
       <div className="login-card">
-        <div className="login-brand">
-          <span className="brand-mark">SF</span>
-          <span style={{ fontWeight: 700, fontSize: 16 }}>Sherpa Fleet</span>
+        <div className="login-brand" style={{ justifyContent: "center" }}>
+          <Logo height={84} />
         </div>
         <h1 className="login-title">Welcome back</h1>
         <p className="login-subtitle">Sign in to manage your fleet operations.</p>

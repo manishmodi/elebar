@@ -1,3 +1,4 @@
+import { Logo } from "./Logo";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/auth";
 import type { Section } from "@/lib/types";
@@ -47,8 +48,8 @@ export function Layout() {
     <div className="app-shell">
       <aside className="sidebar">
         <div className="sidebar-brand">
-          <span className="brand-mark">SF</span>
-          <span className="brand-name">Sherpa Fleet</span>
+          <Logo variant="mark" color="#ffffff" height={26} />
+          <span className="brand-name">SHERPA</span>
         </div>
         <nav className="sidebar-nav">
           {visibleItems.map((item) => (

@@ -13,6 +13,7 @@ x-backend: &backend
   depends_on:
     db: { condition: service_healthy }
     redis: { condition: service_healthy }
+    rabbitmq: { condition: service_healthy }
 
 services:
   db:
@@ -32,6 +33,15 @@ services:
     healthcheck: { test: ["CMD", "redis-cli", "ping"], interval: 10s, retries: 5 }
     restart: unless-stopped
 
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-sherpa}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+    volumes: [rabbitmqdata:/var/lib/rabbitmq]
+    healthcheck: { test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"], interval: 15s, retries: 5 }
+    restart: unless-stopped
+
   # API — gunicorn behind the frontend nginx. Uploaded KYC docs/photos live on
   # the shared media volume (served through the authenticated storage view).
   api:
@@ -41,6 +51,7 @@ services:
 
   # One worker on the default queue is enough today (Yango sync + rollups).
   # Split queues only when a workload class needs independent scaling.
+  # --without-mingle/--without-gossip: required for RabbitMQ 4.x compatibility.
   # The image's HEALTHCHECK curls gunicorn — meaningless for Celery, disable.
   worker:
     <<: *backend
@@ -66,4 +77,5 @@ services:
 volumes:
   pgdata:
   redisdata:
+  rabbitmqdata:
   media:

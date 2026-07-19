@@ -11,26 +11,89 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { DateRangeFilter, type DateRange } from "@/components/DateRangeFilter";
 import { formatDate, daysAgoISO, todayISO } from "@/lib/format";
 import { TextField, SelectField } from "@/components/FormField";
+import {
+  BS_MAX_YEAR,
+  BS_MIN_YEAR,
+  bsToAd,
+  getBsMonthLength,
+  getBsMonthName,
+  getTodayBs,
+  shiftBsMonth,
+} from "@/lib/nepali-date";
 
 type FormValues = Omit<AttendanceRow, "id" | "rider_name" | "vehicle_number" | "day_closed">;
+type ViewMode = "table" | "calendar";
 
+const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+const TYPE_DOT_CLASS: Record<AttendanceType, string> = {
+  present: "bs-cal-dot-present",
+  absent: "bs-cal-dot-absent",
+  leave: "bs-cal-dot-leave",
+  holiday: "bs-cal-dot-holiday",
+  half_day: "bs-cal-dot-halfday",
+};
+
+interface CalendarCell {
+  bsDay: number;
+  adIso: string;
+  weekday: number;
+}
+
+function buildCalendarCells(year: number, month: number, length: number): { leading: number; cells: CalendarCell[] } {
+  const startAd = bsToAd({ year, month, day: 1 });
+  if (!startAd) return { leading: 0, cells: [] };
+  const startDate = new Date(startAd + "T00:00:00");
+  const leading = startDate.getDay();
+  const cells: CalendarCell[] = [];
+  for (let day = 1; day <= length; day++) {
+    const cellDate = new Date(startDate);
+    cellDate.setDate(startDate.getDate() + (day - 1));
+    const yyyy = cellDate.getFullYear();
+    const mm = String(cellDate.getMonth() + 1).padStart(2, "0");
+    const dd = String(cellDate.getDate()).padStart(2, "0");
+    cells.push({ bsDay: day, adIso: `${yyyy}-${mm}-${dd}`, weekday: cellDate.getDay() });
+  }
+  return { leading, cells };
+}
+
+function formatAdShort(iso: string): string {
+  const d = new Date(iso + "T00:00:00");
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
+}
+
+// Text fields must be "" not null — the serializer's CharFields are
+// blank-but-not-null and reject null with a 400 (numeric/FK nulls are fine).
 const EMPTY: FormValues = {
   rider: "",
   date: todayISO(),
-  nepali_date: null,
+  nepali_date: "",
   type: "present",
-  remarks: null,
+  remarks: "",
   vehicle: null,
   battery_out: null,
   battery_in: null,
-  scooter_out: null,
-  scooter_in: null,
-  rider_time_in: null,
-  rider_time_out: null,
+  scooter_out: "",
+  scooter_in: "",
+  rider_time_in: "",
+  rider_time_out: "",
   morning_odometer: null,
   evening_odometer: null,
-  vehicle_override_reason: null,
+  vehicle_override_reason: "",
 };
+
+const TEXT_FIELDS = [
+  "nepali_date", "remarks", "scooter_out", "scooter_in",
+  "rider_time_in", "rider_time_out", "vehicle_override_reason",
+] as const;
+
+/** Belt-and-braces: rows loaded for editing can carry nulls from the API. */
+function sanitize(body: FormValues): FormValues {
+  const out = { ...body };
+  for (const field of TEXT_FIELDS) out[field] = out[field] ?? "";
+  return out;
+}
 
 function str(v: string | null | undefined) {
   return v ?? "";
@@ -51,6 +114,12 @@ export function Attendance() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<AttendanceRow | null>(null);
   const [values, setValues] = useState<FormValues>(EMPTY);
+  const [dayPrefillDate, setDayPrefillDate] = useState<string | null>(null);
+
+  const [view, setView] = useState<ViewMode>("table");
+  const todayBs = useMemo(() => getTodayBs(), []);
+  const [bsYear, setBsYear] = useState<number>(todayBs?.year ?? BS_MIN_YEAR);
+  const [bsMonth, setBsMonth] = useState<number>(todayBs?.month ?? 0);
 
   const canCreate = hasPermission("attendance", "create");
   const canEdit = hasPermission("attendance", "edit");
@@ -72,14 +141,34 @@ export function Attendance() {
     enabled: modalOpen,
   });
 
+  const monthLength = getBsMonthLength(bsYear, bsMonth) ?? 30;
+  const calendarRange = useMemo(() => {
+    const startAd = bsToAd({ year: bsYear, month: bsMonth, day: 1 });
+    const endAd = bsToAd({ year: bsYear, month: bsMonth, day: monthLength });
+    return { date_from: startAd ?? todayISO(), date_to: endAd ?? todayISO() };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bsYear, bsMonth, monthLength]);
+
+  const calendarQuery = useQuery({
+    queryKey: ["attendance", "calendar", { rider, calendarRange }],
+    queryFn: () =>
+      api.get<Paginated<AttendanceRow>>("/api/attendance/", {
+        rider: rider || undefined,
+        date_from: calendarRange.date_from,
+        date_to: calendarRange.date_to,
+        page_size: 100,
+      }),
+    enabled: view === "calendar",
+  });
+
   useEffect(() => {
     if (editing) {
       const { id: _id, rider_name: _rn, vehicle_number: _vn, day_closed: _dc, ...rest } = editing;
       setValues(rest);
     } else {
-      setValues(EMPTY);
+      setValues({ ...EMPTY, date: dayPrefillDate ?? EMPTY.date });
     }
-  }, [editing]);
+  }, [editing, dayPrefillDate]);
 
   // Auto-prefill vehicle from rider's active assignment when creating.
   useEffect(() => {
@@ -124,19 +213,47 @@ export function Attendance() {
     return Array.from(map.entries()).sort((a, b) => (a[0] < b[0] ? 1 : -1));
   }, [listQuery.data]);
 
+  const calendarGrouped = useMemo(() => {
+    const rows = calendarQuery.data?.results ?? [];
+    const map = new Map<string, AttendanceRow[]>();
+    for (const row of rows) {
+      const list = map.get(row.date) ?? [];
+      list.push(row);
+      map.set(row.date, list);
+    }
+    return map;
+  }, [calendarQuery.data]);
+
+  const { leading: calendarLeading, cells: calendarCells } = useMemo(
+    () => buildCalendarCells(bsYear, bsMonth, monthLength),
+    [bsYear, bsMonth, monthLength],
+  );
+
+  const canGoPrevMonth = !(bsYear === BS_MIN_YEAR && bsMonth === 0);
+  const canGoNextMonth = !(bsYear === BS_MAX_YEAR && bsMonth === 11);
+
+  const goToMonth = (delta: number) => {
+    const next = shiftBsMonth(bsYear, bsMonth, delta);
+    if (next.year < BS_MIN_YEAR || next.year > BS_MAX_YEAR) return;
+    setBsYear(next.year);
+    setBsMonth(next.month);
+  };
+
   const set = <K extends keyof FormValues>(key: K, value: FormValues[K]) =>
     setValues((prev) => ({ ...prev, [key]: value }));
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
+    const body = sanitize(values);
     if (editing) {
-      updateMutation.mutate({ id: editing.id, body: values });
+      updateMutation.mutate({ id: editing.id, body });
     } else {
-      createMutation.mutate(values);
+      createMutation.mutate(body);
     }
   };
 
   const openCreate = () => {
+    setDayPrefillDate(null);
     setEditing(null);
     setModalOpen(true);
   };
@@ -146,8 +263,22 @@ export function Attendance() {
       toast.info("This day is closed and can only be edited by an administrator.");
       return;
     }
+    setDayPrefillDate(null);
     setEditing(row);
     setModalOpen(true);
+  };
+
+  const openDayCell = (dateAd: string, rows: AttendanceRow[]) => {
+    const match = rider ? rows.find((r) => r.rider === rider) : rows.length === 1 ? rows[0] : undefined;
+    if (match) {
+      if (canEdit) openEdit(match);
+      return;
+    }
+    if (canCreate) {
+      setDayPrefillDate(dateAd);
+      setEditing(null);
+      setModalOpen(true);
+    }
   };
 
   const columns: Column<AttendanceRow>[] = [
@@ -197,20 +328,120 @@ export function Attendance() {
             <option key={r.id} value={r.id}>{r.full_name}</option>
           ))}
         </select>
-        <DateRangeFilter value={range} onChange={setRange} />
+        {view === "table" && <DateRangeFilter value={range} onChange={setRange} />}
+        <div className="view-toggle">
+          <button
+            type="button"
+            className={`view-toggle-btn ${view === "table" ? "is-active" : ""}`}
+            onClick={() => setView("table")}
+          >
+            Table
+          </button>
+          <button
+            type="button"
+            className={`view-toggle-btn ${view === "calendar" ? "is-active" : ""}`}
+            onClick={() => setView("calendar")}
+          >
+            Calendar
+          </button>
+        </div>
       </div>
 
-      {listQuery.isLoading ? (
-        <p className="text-muted">Loading…</p>
-      ) : grouped.length === 0 ? (
-        <div className="empty-state">No attendance records for this range.</div>
+      {view === "table" ? (
+        listQuery.isLoading ? (
+          <p className="text-muted">Loading…</p>
+        ) : grouped.length === 0 ? (
+          <div className="empty-state">No attendance records for this range.</div>
+        ) : (
+          grouped.map(([date, rows]) => (
+            <div key={date} style={{ marginBottom: 20 }}>
+              <h3 className="section-title">{formatDate(date)}</h3>
+              <DataTable columns={columns} rows={rows} rowKey={(a) => a.id} onRowClick={canEdit ? openEdit : undefined} />
+            </div>
+          ))
+        )
       ) : (
-        grouped.map(([date, rows]) => (
-          <div key={date} style={{ marginBottom: 20 }}>
-            <h3 className="section-title">{formatDate(date)}</h3>
-            <DataTable columns={columns} rows={rows} rowKey={(a) => a.id} onRowClick={canEdit ? openEdit : undefined} />
+        <div className="bs-calendar">
+          <div className="bs-calendar-header">
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              disabled={!canGoPrevMonth}
+              onClick={() => goToMonth(-1)}
+            >
+              ← Prev
+            </button>
+            <h3 className="bs-calendar-title">
+              {getBsMonthName(bsMonth)} {bsYear} <span className="text-muted">(BS)</span>
+            </h3>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              disabled={!canGoNextMonth}
+              onClick={() => goToMonth(1)}
+            >
+              Next →
+            </button>
           </div>
-        ))
+
+          {calendarQuery.isLoading ? (
+            <p className="text-muted">Loading…</p>
+          ) : (
+            <>
+              <div className="bs-calendar-grid bs-calendar-weekdays">
+                {WEEKDAY_LABELS.map((label, idx) => (
+                  <div key={label} className={`bs-calendar-weekday ${idx === 6 ? "is-saturday" : ""}`}>
+                    {label}
+                  </div>
+                ))}
+              </div>
+              <div className="bs-calendar-grid">
+                {Array.from({ length: calendarLeading }).map((_, idx) => (
+                  <div key={`lead-${idx}`} className="bs-calendar-cell is-empty" />
+                ))}
+                {calendarCells.map((cell) => {
+                  const rows = calendarGrouped.get(cell.adIso) ?? [];
+                  const isSaturday = cell.weekday === 6;
+                  const isToday = cell.adIso === todayISO();
+                  const classes = [
+                    "bs-calendar-cell",
+                    isSaturday ? "is-saturday" : "",
+                    isToday ? "is-today" : "",
+                    canCreate || canEdit ? "is-clickable" : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ");
+                  return (
+                    <div key={cell.adIso} className={classes} onClick={() => openDayCell(cell.adIso, rows)}>
+                      <div className="bs-calendar-cell-head">
+                        <span className="bs-calendar-day-number">{cell.bsDay}</span>
+                        <span className="bs-calendar-ad-date">{formatAdShort(cell.adIso)}</span>
+                      </div>
+                      {rows.length > 0 && (
+                        <div className="bs-calendar-dots">
+                          {rows.map((row) => (
+                            <span
+                              key={row.id}
+                              className={`bs-calendar-dot ${TYPE_DOT_CLASS[row.type]}`}
+                              title={`${row.rider_name ?? row.rider} — ${row.type.replace(/_/g, " ")}`}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="bs-calendar-legend">
+                <span><span className="bs-calendar-dot bs-cal-dot-present" /> Present</span>
+                <span><span className="bs-calendar-dot bs-cal-dot-absent" /> Absent</span>
+                <span><span className="bs-calendar-dot bs-cal-dot-leave" /> Leave</span>
+                <span><span className="bs-calendar-dot bs-cal-dot-holiday" /> Holiday</span>
+                <span><span className="bs-calendar-dot bs-cal-dot-halfday" /> Half day</span>
+              </div>
+            </>
+          )}
+        </div>
       )}
 
       <Modal open={modalOpen} title={editing ? "Edit attendance" : "Mark attendance"} onClose={() => setModalOpen(false)} wide>

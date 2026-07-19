@@ -49,8 +49,9 @@ export function Performance() {
     { key: "total_revenue", header: "Total revenue", render: (r) => <Currency value={r.total_revenue} /> },
     { key: "avg_rides_per_day", header: "Avg rides/day", render: (r) => r.avg_rides_per_day.toFixed(1) },
     { key: "avg_revenue_per_day", header: "Avg revenue/day", render: (r) => <Currency value={r.avg_revenue_per_day} /> },
-    { key: "avg_acceptance", header: "Acceptance", render: (r) => `${r.avg_acceptance.toFixed(1)}%` },
-    { key: "target_hit_rate", header: "Target hit rate", render: (r) => `${r.target_hit_rate.toFixed(1)}%` },
+    // both are null when the rider has no acceptance data / target days
+    { key: "avg_acceptance", header: "Acceptance", render: (r) => (r.avg_acceptance != null ? `${r.avg_acceptance.toFixed(1)}%` : "—") },
+    { key: "target_hit_rate", header: "Target hit rate", render: (r) => (r.target_hit_rate != null ? `${r.target_hit_rate.toFixed(1)}%` : "—") },
     {
       key: "flags",
       header: "Flags",
@@ -114,7 +115,7 @@ export function Performance() {
                       <XAxis dataKey="date" tickFormatter={(v: string) => formatDate(v)} fontSize={10} />
                       <YAxis fontSize={11} />
                       <Tooltip labelFormatter={(v) => formatDate(String(v))} />
-                      <Bar dataKey="rides_completed" fill="#2563eb" name="Completed" />
+                      <Bar dataKey="rides_completed" fill="#2f3f96" name="Completed" />
                       <Bar dataKey="target" fill="#0d9488" name="Target" />
                     </BarChart>
                   </ResponsiveContainer>
@@ -129,7 +130,7 @@ export function Performance() {
                       <XAxis dataKey="date" tickFormatter={(v: string) => formatDate(v)} fontSize={10} />
                       <YAxis fontSize={11} />
                       <Tooltip labelFormatter={(v) => formatDate(String(v))} formatter={(v: number) => [`Rs ${v}`, "Income"]} />
-                      <Line type="monotone" dataKey="income" stroke="#2563eb" strokeWidth={2} dot={false} />
+                      <Line type="monotone" dataKey="income" stroke="#2f3f96" strokeWidth={2} dot={false} />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>

@@ -109,6 +109,8 @@ AUTH_USER_MODEL = "accounts.User"
 PASSWORD_HASHERS = [
     "django.contrib.auth.hashers.Argon2PasswordHasher",
     "django.contrib.auth.hashers.PBKDF2PasswordHasher",
+    # Legacy-imported bcrypt hashes verify here and upgrade to Argon2 on login.
+    "django.contrib.auth.hashers.BCryptPasswordHasher",
 ]
 
 AUTH_PASSWORD_VALIDATORS = [
@@ -187,11 +189,33 @@ if not DEBUG:
 
 # --- Celery -----------------------------------------------------------------
 
-CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", REDIS_URL or "memory://")
+# Broker is RabbitMQ (Redis is cache-only); dev without RabbitMQ runs eager.
+CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "amqp://guest:guest@localhost:5672//")
 CELERY_RESULT_BACKEND = None
 CELERY_TASK_ALWAYS_EAGER = os.environ.get("CELERY_TASK_ALWAYS_EAGER", "0") == "1"
 CELERY_TASK_DEFAULT_QUEUE = "default"
 CELERY_TIMEZONE = "UTC"
+
+# Scheduled jobs (celery beat). Safe to ship enabled everywhere: every
+# Yango-touching task is a clean no-op while the YANGO_* credentials are
+# unset, and target computation is pure-DB (no provider traffic).
+from celery.schedules import crontab  # noqa: E402
+
+CELERY_BEAT_SCHEDULE = {
+    # 00:30 UTC = 06:15 Nepal — pull yesterday's (Nepal) Yango rides into
+    # draft daily logs (goal bonus needs the next day's statement, which has
+    # posted by then).
+    "yango-sync-yesterday": {
+        "task": "apps.operations.tasks.sync_yango_day",
+        "schedule": crontab(minute=30, hour=0),
+    },
+    # 20:00 UTC = 01:45 Nepal (already the next calendar day) — compute the
+    # ride target for the Nepal working day that has just begun.
+    "compute-daily-targets": {
+        "task": "apps.operations.tasks.compute_daily_targets",
+        "schedule": crontab(minute=0, hour=20),
+    },
+}
 
 # --- Logging ----------------------------------------------------------------
 

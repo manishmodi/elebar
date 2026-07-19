@@ -7,7 +7,7 @@ import { DateRangeFilter, type DateRange } from "@/components/DateRangeFilter";
 import { Currency } from "@/components/Currency";
 import { daysAgoISO, formatCurrency, todayISO } from "@/lib/format";
 
-const COLORS = ["#2563eb", "#0d9488", "#d97706", "#dc2626", "#64748b"];
+const COLORS = ["#2f3f96", "#0d9488", "#d97706", "#dc2626", "#64748b"];
 
 export function Financials() {
   const [range, setRange] = useState<DateRange>({ date_from: daysAgoISO(29), date_to: todayISO() });

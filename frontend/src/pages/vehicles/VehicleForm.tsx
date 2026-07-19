@@ -21,10 +21,10 @@ const EMPTY: VehicleFormValues = {
   last_service_date: null,
   last_service_odometer: null,
   servicing_payment: null,
-  odometer_reading: 0,
+  odometer_reading: "",
   status: "active",
   location_branch: null,
-  gps_installed: false,
+  gps_installed: "",
   gps_number: null,
   gps_id_password: null,
   scooter_branding: null,
@@ -34,6 +34,12 @@ const EMPTY: VehicleFormValues = {
   bluebook_issue_date: null,
   bluebook_expiry_date: null,
 };
+
+const TEXT_FIELDS = new Set<keyof VehicleFormValues>([
+  "vehicle_type", "brand", "model", "color", "battery_details", "servicing_payment",
+  "odometer_reading", "location_branch", "gps_installed", "gps_number",
+  "gps_id_password", "scooter_branding", "branding_payment",
+]);
 
 function str(v: string | null | undefined): string {
   return v ?? "";
@@ -63,7 +69,12 @@ export function VehicleForm({ initial, onSubmit, onCancel, submitting }: Vehicle
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    await onSubmit(values);
+    const body = { ...values };
+    for (const key of Object.keys(body) as (keyof VehicleFormValues)[]) {
+      // Text fields must be "" not null; date/number fields legitimately null.
+      if (body[key] === null && TEXT_FIELDS.has(key)) (body as Record<string, unknown>)[key] = "";
+    }
+    await onSubmit(body);
   };
 
   return (
@@ -80,7 +91,7 @@ export function VehicleForm({ initial, onSubmit, onCancel, submitting }: Vehicle
         <TextField label="Model" value={values.model} onChange={(e) => set("model", e.target.value)} />
         <TextField label="Manufacture year" type="number" value={values.manufacture_year ?? ""} onChange={(e) => set("manufacture_year", e.target.value ? Number(e.target.value) : null)} />
         <TextField label="Color" value={str(values.color)} onChange={(e) => set("color", e.target.value || null)} />
-        <TextField label="Odometer reading (km)" type="number" value={values.odometer_reading ?? 0} onChange={(e) => set("odometer_reading", Number(e.target.value))} />
+        <TextField label="Odometer reading (km)" type="number" value={values.odometer_reading ?? ""} onChange={(e) => set("odometer_reading", e.target.value)} />
         <SelectField label="Status" value={values.status} onChange={(e) => set("status", e.target.value as VehicleFormValues["status"])}>
           <option value="active">Active</option>
           <option value="maintenance">Maintenance</option>
@@ -109,7 +120,7 @@ export function VehicleForm({ initial, onSubmit, onCancel, submitting }: Vehicle
 
       <FormSection title="GPS">
         <label className="checkbox-row">
-          <input type="checkbox" checked={values.gps_installed} onChange={(e) => set("gps_installed", e.target.checked)} />
+          <input type="checkbox" checked={values.gps_installed === "yes"} onChange={(e) => set("gps_installed", e.target.checked ? "yes" : "no")} />
           GPS installed
         </label>
         <TextField label="GPS number" value={str(values.gps_number)} onChange={(e) => set("gps_number", e.target.value || null)} />

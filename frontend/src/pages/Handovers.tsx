@@ -21,6 +21,9 @@ export function Handovers() {
     queryKey: ["handovers", "pending"],
     queryFn: () => api.get<Handover[]>("/api/fleet/handovers/pending/"),
     refetchInterval: 5000,
+    // The guard console often runs on an unfocused/idle screen — keep
+    // polling even when the window doesn't have focus.
+    refetchIntervalInBackground: true,
   });
 
   const verifyMutation = useMutation({
@@ -70,12 +73,22 @@ export function Handovers() {
               <h3 style={{ marginBottom: 6 }}>{h.rider_name}</h3>
               <p className="text-muted" style={{ marginBottom: 10 }}>{h.vehicle_number ?? "No vehicle"}</p>
               <div>
-                {Object.entries(h.payload ?? {}).map(([key, value]) => (
-                  <div className="stat-row" key={key}>
-                    <span>{key.replace(/_/g, " ")}</span>
-                    <strong>{String(value)}</strong>
-                  </div>
-                ))}
+                {Object.entries(h.payload ?? {}).map(([key, value]) => {
+                  if (value == null) return null;
+                  if (typeof value === "object" && Object.keys(value).length === 0) return null;
+                  const display =
+                    typeof value === "object"
+                      ? key === "photo_paths"
+                        ? `${Object.keys(value).length} photo(s)`
+                        : JSON.stringify(value)
+                      : String(value);
+                  return (
+                    <div className="stat-row" key={key}>
+                      <span>{key.replace(/_/g, " ")}</span>
+                      <strong>{display}</strong>
+                    </div>
+                  );
+                })}
                 {h.cash_expected != null && (
                   <div className="stat-row">
                     <span>Cash expected</span>

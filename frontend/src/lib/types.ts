@@ -141,7 +141,7 @@ export interface RiderStats {
   total_income: number;
   avg_rides_per_day: number;
   avg_income_per_day: number;
-  growth: { rides: number; income: number };
+  growth: { rides: number | null; income: number | null };
 }
 
 // ---------- Vehicles ----------
@@ -167,10 +167,10 @@ export interface Vehicle {
   last_service_date: string | null;
   last_service_odometer: number | null;
   servicing_payment: string | null;
-  odometer_reading: number | null;
+  odometer_reading: string | null;
   status: VehicleStatus;
   location_branch: string | null;
-  gps_installed: boolean;
+  gps_installed: string | null;  // legacy text column: "yes"/"no"/""
   gps_number: string | null;
   gps_id_password: string | null;
   scooter_branding: string | null;
@@ -347,7 +347,7 @@ export interface FleetStats {
   total_income: number;
   days: number;
   daily: FleetStatsDay[];
-  growth: { income: number; rides: number } | null;
+  growth: { income: number | null; rides: number | null } | null;
 }
 
 // ---------- Salary ----------
@@ -487,8 +487,8 @@ export interface PerformanceRow {
   total_revenue: number;
   avg_rides_per_day: number;
   avg_revenue_per_day: number;
-  avg_acceptance: number;
-  target_hit_rate: number;
+  avg_acceptance: number | null;
+  target_hit_rate: number | null;
   fraud_days: number;
   tier: Tier;
   flags: string[];
@@ -516,7 +516,84 @@ export interface YangoStatus {
   configured: boolean;
 }
 
+// GET /api/yango/drivers/ rows — driver directory cached from the park's
+// full driver list (see apps/operations/yango_sync.py:refresh_driver_cache_now).
 export interface YangoDriver {
-  id: string;
-  [key: string]: unknown;
+  driver_profile_id: string;
+  name: string;
+  phones?: string[];
+}
+
+export interface YangoDriverCacheState {
+  ready: boolean;
+  loading: boolean;
+  total: number;
+  loaded_at: string | null;
+  error: string | null;
+}
+
+export interface YangoDriversResponse {
+  drivers: YangoDriver[];
+  cache: YangoDriverCacheState;
+}
+
+export interface YangoDriversRefreshResponse {
+  detail: string;
+  cache: YangoDriverCacheState;
+}
+
+export type YangoSyncJobStatus = "running" | "done" | "error";
+
+// Per-rider status from preview_for_date: "new"/"draft_exists" carry figures,
+// "finalized_exists" reports an already-confirmed log (never overwritten),
+// "error" carries `error` instead of figures.
+export type YangoPreviewRowStatus = "new" | "draft_exists" | "finalized_exists" | "error";
+
+export interface YangoSyncPreviewRow {
+  rider_id: string;
+  rider_name: string;
+  yango_driver_id: string;
+  status: YangoPreviewRowStatus;
+  existing_log_id?: string;
+  error?: string;
+  rides_completed?: number;
+  total_rides_received?: number;
+  acceptance_rate?: string;
+  total_ride_distance_km?: string;
+  total_income?: string;
+  cash_as_per_app?: string;
+  goal_bonus?: string;
+  promotion_bonus_other?: string;
+  total_app_online?: string;
+}
+
+export interface YangoSyncPreviewResult {
+  date: string;
+  riders: YangoSyncPreviewRow[];
+}
+
+export interface YangoSyncPreviewProgress {
+  completed: number;
+  total: number;
+}
+
+// POST /sync/preview/start/ and GET /sync/preview/status/<job_id>/ share this
+// shape; `result`/`error` only populate once status leaves "running".
+export interface YangoSyncPreviewJob {
+  job_id: string;
+  date: string;
+  status: YangoSyncJobStatus;
+  progress: YangoSyncPreviewProgress;
+  result?: YangoSyncPreviewResult;
+  error?: string;
+}
+
+// POST /api/yango/sync/ {job_id} response — counts dict from persist_from_preview.
+export interface YangoSyncPersistResult {
+  date: string;
+  processed: number;
+  created: number;
+  updated: number;
+  skipped: number;
+  errors: string[];
 }

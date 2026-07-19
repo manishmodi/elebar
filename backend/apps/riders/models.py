@@ -91,6 +91,15 @@ class Rider(BaseModel):
 
     class Meta:
         indexes = [models.Index(fields=["full_name"])]
+        constraints = [
+            # A Yango driver id is a rider-app identity — two riders sharing
+            # one would shadow each other's handovers, cash and pay.
+            models.UniqueConstraint(
+                fields=["yango_driver_id"],
+                condition=~models.Q(yango_driver_id=""),
+                name="uniq_rider_yango_driver_id",
+            ),
+        ]
 
     def __str__(self):
         return self.full_name

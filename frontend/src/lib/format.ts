@@ -11,6 +11,10 @@ export function formatDate(value: string | null | undefined): string {
   return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 }
 
+/** Operations run on Nepal time — all "today"-relative logic and timestamp
+ * display uses the org timezone, never the browser's. */
+export const ORG_TIMEZONE = "Asia/Kathmandu";
+
 export function formatDateTime(value: string | null | undefined): string {
   if (!value) return "-";
   const d = new Date(value);
@@ -21,22 +25,23 @@ export function formatDateTime(value: string | null | undefined): string {
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: ORG_TIMEZONE,
   });
 }
 
+/** YYYY-MM-DD of "today" in the org timezone (en-CA formats as ISO). */
 export function todayISO(): string {
-  return new Date().toISOString().slice(0, 10);
+  return new Intl.DateTimeFormat("en-CA", { timeZone: ORG_TIMEZONE }).format(new Date());
 }
 
 export function daysAgoISO(days: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - days);
+  const parts = todayISO().split("-").map(Number);
+  const d = new Date(Date.UTC(parts[0]!, parts[1]! - 1, parts[2]! - days));
   return d.toISOString().slice(0, 10);
 }
 
 export function startOfMonthISO(): string {
-  const d = new Date();
-  return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
+  return todayISO().slice(0, 8) + "01";
 }
 
 export function toCsv(rows: Record<string, unknown>[], headers?: string[]): string {

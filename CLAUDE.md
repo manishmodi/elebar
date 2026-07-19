@@ -48,6 +48,10 @@ target architecture, current gaps. Keep it updated.
 - ViewSet lists are paginated ({count,next,previous,results}); reporting
   APIViews return plain JSON. All money is Decimal (never float), serialized
   as strings. Dates are `YYYY-MM-DD`; Nepali BS dates ride along as text.
+- **List filtering is via URL query parameters only** (`?status=`, `?search=`,
+  `?date_from=`/`?date_to=`, `?rider=<uuid>`, `?vehicle=<uuid>`) — never
+  request bodies, never custom headers. New list endpoints follow the same
+  parameter names.
 
 ## Domain invariants (do not regress)
 - One row per rider-day in daily_logs / attendance / cash_collections; one
@@ -62,6 +66,8 @@ target architecture, current gaps. Keep it updated.
   check-in); only admins may correct them, and corrections recompute pay.
 - Working days exclude Saturdays (Nepal). Storage is UTC; `ORG_TIMEZONE`
   (Asia/Kathmandu) is the reporting zone.
+- **Celery broker is RabbitMQ; Redis is cache-only** (never a broker). Dev
+  without RabbitMQ sets `CELERY_TASK_ALWAYS_EAGER=1`.
 - Yango (and any provider) integration stays inactive until credentials exist
   in env — dev traffic must never hit live APIs.
 

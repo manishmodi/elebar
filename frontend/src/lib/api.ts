@@ -105,7 +105,11 @@ async function rawFetch(path: string, options: RequestOptions, retry = true): Pr
     body,
   });
 
-  if (res.status === 401 && retry && !options.skipAuthRedirect) {
+  // A 401 from login/refresh is a credentials problem, not an expired
+  // session — let it surface as its own error instead of redirecting.
+  const isAuthEndpoint =
+    path.startsWith("/api/auth/login") || path.startsWith("/api/auth/refresh");
+  if (res.status === 401 && retry && !options.skipAuthRedirect && !isAuthEndpoint) {
     if (!refreshPromise) {
       refreshPromise = doRefresh().finally(() => {
         refreshPromise = null;

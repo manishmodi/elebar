@@ -5,12 +5,22 @@ Attendance row (and, on check-in, create the CashCollection).
 Guard corrections in the verify payload override the rider's declared numbers.
 """
 
+from zoneinfo import ZoneInfo
+
+from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
 from apps.payroll.engine import recompute_if_locked
 
 from .models import Attendance, CashCollection, FleetHandover
+
+
+def _org_now_hhmm():
+    """Shift times are org-local (Asia/Kathmandu) HH:MM strings — never stamp
+    UTC into them (TIME_ZONE is UTC, so timezone.localtime() would be 5:45
+    behind and corrupt the pay engine's worked-hours gate)."""
+    return timezone.now().astimezone(ZoneInfo(settings.ORG_TIMEZONE)).strftime("%H:%M")
 
 
 class HandoverError(Exception):
@@ -56,7 +66,7 @@ def verify_handover(handover, guard, corrections=None):
     if handover.kind == FleetHandover.Kind.CHECKOUT:
         attendance.battery_out = _clean_battery(data.get("battery"))
         attendance.morning_odometer = _clean_odometer(data.get("odometer"))
-        attendance.rider_time_in = data.get("time") or timezone.localtime().strftime("%H:%M")
+        attendance.rider_time_in = data.get("time") or _org_now_hhmm()
         attendance.scooter_out = data.get("time") or attendance.scooter_out
 
     elif handover.kind == FleetHandover.Kind.EXCHANGE:
@@ -71,9 +81,9 @@ def verify_handover(handover, guard, corrections=None):
     elif handover.kind == FleetHandover.Kind.CHECKIN:
         attendance.battery_in = _clean_battery(data.get("battery"))
         attendance.evening_odometer = _clean_odometer(data.get("odometer"))
-        attendance.rider_time_out = data.get("time") or timezone.localtime().strftime("%H:%M")
+        attendance.rider_time_out = data.get("time") or _org_now_hhmm()
         attendance.scooter_in = data.get("time") or attendance.scooter_in
-        _create_cash_collection(handover, data)
+        _create_cash_collection(handover, data, guard)
 
     attendance.save()
 
@@ -87,7 +97,7 @@ def verify_handover(handover, guard, corrections=None):
     return handover
 
 
-def _create_cash_collection(handover, data):
+def _create_cash_collection(handover, data, guard):
     if CashCollection.objects.filter(
         rider=handover.rider, english_date=handover.english_date
     ).exists():
@@ -97,8 +107,10 @@ def _create_cash_collection(handover, data):
         english_date=handover.english_date,
         wallet_amount=data.get("wallet") or 0,
         note=f"Auto-created from handover {handover.uuid}",
-        submitted_by=handover.verified_by,
-        submitted_by_name=handover.verified_by_name or "guard console",
+        # The verifying guard is the submitter (handover.verified_by is only
+        # assigned after projection, so it can't be read here).
+        submitted_by=guard,
+        submitted_by_name=guard.full_name if guard else "guard console",
     )
     for value, field in CashCollection.DENOMS:
         setattr(collection, field, int(data.get(field, 0) or 0))
