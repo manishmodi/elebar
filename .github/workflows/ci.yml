@@ -21,12 +21,10 @@ jobs:
         working-directory: backend
         env: { DATABASE_URL: "", REDIS_URL: "", DEBUG: "1" }
         run: python manage.py check
-      # Exit code 5 = "no tests collected" — tolerated until the pytest suite
-      # lands (queued in .claude/pending/tests.md); real failures still fail CI.
       - name: pytest
         working-directory: backend
         env: { DATABASE_URL: "", REDIS_URL: "" }
-        run: pytest -q || { rc=$?; [ "$rc" -eq 5 ] && echo "no tests yet"; exit $((rc == 5 ? 0 : rc)); }
+        run: pytest -q
 
   frontend-build:
     runs-on: ubuntu-latest
