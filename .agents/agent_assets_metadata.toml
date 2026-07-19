@@ -1,8 +1,0 @@
-uploads = []
-generated = []
-
-[[outputs]]
-id = "64yBzLXstJkBMST9RccXs"
-uri = "file://exports/elebhar_prod_export.tar.gz"
-type = "unspecified"
-title = "Elebhar FMS — Production Database Export"

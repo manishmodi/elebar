@@ -1,5 +1,0 @@
-- [Yango park scale & rate limiting](yango-rate-limiting.md) — Yango "park" = the whole marketplace (17k+ drivers), NOT the fleet; park-wide endpoints not viable, sync stays per-driver and is paced by a global rate limiter.
-- [API codegen build chain](api-codegen-build-chain.md) — after orval codegen you MUST `tsc --build` the lib (dist d.ts); noEmitOnError blocks emit on any error, so app tsc sees stale types.
-- [Checkpoint restore silent revert](checkpoint-restore-silent-revert.md) — a `Restored to '...'` rollback can silently wipe a shipped feature; recover via `git show <commit>:<path>` after confirming no divergence.
-- [OpenAPI request schema completeness](openapi-request-schema-completeness.md) — write validators strip keys not in the openapi Create<X> request schema → silent data loss on save; never hand-patch generated files (codegen overwrites).
-- [Vehicle fleet client-side metrics](vehicle-fleet-client-side-metrics.md) — Revenue & Days Active are computed in vehicles.tsx via useMemo maps from full log/attendance fetches, filtered by From/To; mirror this pattern, no backend aggregation.

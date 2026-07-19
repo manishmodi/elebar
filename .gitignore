@@ -53,6 +53,7 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+!.env.prod.example
 
 # Production data dumps / exports (contain PII + password hashes — never commit)
 elebhar_dump.sql
@@ -60,3 +61,12 @@ exports/
 *.tar.gz
 *.dump
 .vercel
+
+# Django backend
+backend/.venv/
+backend/db.sqlite3
+backend/media/
+backend/staticfiles/
+__pycache__/
+*.pyc
+.pytest_cache/
