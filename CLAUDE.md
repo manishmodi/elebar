@@ -7,6 +7,7 @@ attendance handovers, daily ride logs, cash reconciliation, two-track payroll
 
 **Read first, every session:** `.claude/context.md` — project memory: decisions,
 target architecture, current gaps. Keep it updated.
+`COMMANDS.md` holds the dev/release/server runbook (deploy steps, gotchas).
 
 ## Layout
 - `backend/` Django 5 + DRF. Apps under `apps/`:

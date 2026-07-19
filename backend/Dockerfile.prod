@@ -26,7 +26,9 @@ COPY . .
 RUN SECRET_KEY=build-only-collectstatic DEBUG=1 DATABASE_URL= REDIS_URL= \
     python manage.py collectstatic --noinput
 # Media (KYC uploads) is a volume; pre-create it owned by the runtime user.
-RUN mkdir -p /app/media && chown appuser /app/media
+# .gunicorn: gunicorn 26's control server needs a writable dir under the app
+# root — without it every boot logs "Control server error: Permission denied".
+RUN mkdir -p /app/media /app/.gunicorn && chown appuser /app/media /app/.gunicorn
 USER appuser
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
