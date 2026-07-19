@@ -4,6 +4,9 @@ import os
 
 os.environ.setdefault("DATABASE_URL", "")
 os.environ.setdefault("REDIS_URL", "")
+# Must be set BEFORE the base-settings import: with DEBUG unset the base
+# module's production guard refuses the default SECRET_KEY at import time.
+os.environ["DEBUG"] = "1"
 
 from .settings import *  # noqa: F401,F403
 
