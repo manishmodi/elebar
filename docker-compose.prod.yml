@@ -1,0 +1,69 @@
+# Single-host prod stack: Postgres/Redis/api/worker/beat/web on one box.
+# Images are built by CI on v* tags; ${IMAGE_TAG} is set by deploy/deploy.sh.
+# Config/secrets come from deploy/.env.prod (NOT in git).
+
+x-backend: &backend
+  image: ghcr.io/manishmodi/sherpa-backend:${IMAGE_TAG:-latest}
+  # required:false lets `config`/CI validate without the (gitignored) file;
+  # deploy.sh still hard-fails when it's missing at deploy time.
+  env_file:
+    - path: deploy/.env.prod
+      required: false
+  restart: unless-stopped
+  depends_on:
+    db: { condition: service_healthy }
+    redis: { condition: service_healthy }
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-sherpa}
+      POSTGRES_USER: ${POSTGRES_USER:-sherpa}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-sherpa}"], interval: 10s, retries: 5 }
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "60", "1", "--maxmemory-policy", "allkeys-lru"]
+    volumes: [redisdata:/data]
+    healthcheck: { test: ["CMD", "redis-cli", "ping"], interval: 10s, retries: 5 }
+    restart: unless-stopped
+
+  # API — gunicorn behind the frontend nginx. Uploaded KYC docs/photos live on
+  # the shared media volume (served through the authenticated storage view).
+  api:
+    <<: *backend
+    expose: ["8000"]
+    volumes: [media:/app/media]
+
+  # One worker on the default queue is enough today (Yango sync + rollups).
+  # Split queues only when a workload class needs independent scaling.
+  # The image's HEALTHCHECK curls gunicorn — meaningless for Celery, disable.
+  worker:
+    <<: *backend
+    healthcheck: { disable: true }
+    volumes: [media:/app/media]
+    command: ["celery", "-A", "sherpa", "worker", "--without-mingle", "--without-gossip", "-c", "4"]
+
+  # Beat is a SINGLETON — never scale >1 (duplicate scheduled jobs otherwise).
+  # -s: schedule state file must live somewhere the non-root user can write.
+  beat:
+    <<: *backend
+    healthcheck: { disable: true }
+    command: ["celery", "-A", "sherpa", "beat", "-l", "info", "-s", "/tmp/celerybeat-schedule"]
+
+  # Frontend nginx: serves the SPA and reverse-proxies /api to api:8000.
+  # The host edge (nginx/Caddy) terminates TLS and forwards here.
+  web:
+    image: ghcr.io/manishmodi/sherpa-frontend:${IMAGE_TAG:-latest}
+    depends_on: [api]
+    ports: ["8080:80"]
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  redisdata:
+  media:
