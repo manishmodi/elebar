@@ -1,0 +1,106 @@
+name: elebhar-fms
+
+# Shared config for the two app containers (api + web). They run the SAME image
+# (built once from Dockerfile.dev) with the repo bind-mounted and node_modules
+# preserved as anonymous volumes so edits are live but deps come from the image.
+x-dev-app: &dev-app
+  build:
+    context: .
+    dockerfile: Dockerfile.dev
+  image: elebhar-fms-dev:latest
+  env_file:
+    - .env.docker
+  restart: unless-stopped
+  volumes:
+    - ./:/app
+    - /app/node_modules
+    - /app/artifacts/api-server/node_modules
+    - /app/artifacts/elebhar/node_modules
+    - /app/artifacts/mockup-sandbox/node_modules
+    - /app/lib/api-client-react/node_modules
+    - /app/lib/api-spec/node_modules
+    - /app/lib/api-zod/node_modules
+    - /app/lib/db/node_modules
+    - /app/lib/object-storage-web/node_modules
+    - /app/scripts/node_modules
+
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: elebhar
+      POSTGRES_PASSWORD: elebhar
+      POSTGRES_DB: elebhar
+    ports:
+      # host 5434 -> container 5432 (5432/5433 are taken by other local Postgres
+      # instances, incl. plaza-crm). Containers still talk to it as db:5432.
+      - "5434:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U elebhar -d elebhar"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  minio:
+    image: minio/minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # web console
+    volumes:
+      - miniodata:/data
+
+  # One-shot: create the public + private buckets and make the public one readable.
+  minio-init:
+    image: minio/mc
+    depends_on:
+      - minio
+    restart: "no"
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set local http://minio:9000 minioadmin minioadmin; do echo 'waiting for minio...'; sleep 2; done;
+      mc mb -p local/elebhar-public;
+      mc mb -p local/elebhar-private;
+      mc anonymous set download local/elebhar-public;
+      echo 'minio buckets ready';
+      "
+
+  api:
+    <<: *dev-app
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: development
+      PORT: "8080"
+      CI: "true"
+    command: pnpm --filter @workspace/api-server run dev
+    ports:
+      - "8080:8080"
+
+  web:
+    <<: *dev-app
+    depends_on:
+      - api
+    environment:
+      NODE_ENV: development
+      PORT: "5173"
+      CI: "true"
+      # Vite dev-proxy target so the browser sees same-origin /api (cookies work).
+      VITE_API_PROXY_TARGET: http://api:8080
+    command: pnpm --filter @workspace/elebhar run dev
+    ports:
+      # host 5174 -> container 5173 (host :5173 is taken by plaza-crm's dev server
+      # on IPv6 ::1, which would otherwise shadow localhost:5173 in the browser).
+      - "5174:5173"
+
+volumes:
+  pgdata:
+  miniodata:

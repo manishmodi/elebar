@@ -1,0 +1,99 @@
+Layer 1 — The API client (packages/yango-client/src/index.ts)
+A factory, not a class for callers: createYangoClient(config) returns an object with a few methods. Config = { baseUrl, clientId, parkId, apiKey }.
+
+Auth is via headers (this tripped them up — the live API differs from Yango's docs):
+
+X-Client-ID: taxi/park/<uuid> (with prefix)
+X-Park-ID: <bare uuid> (no prefix — only on some endpoints)
+X-API-Key: <secret>
+There's a normalizeConfig() that auto-corrects swapped/prefixed credentials — a nice defensive touch since env vars get mixed up.
+
+One private doFetch helper does everything: builds the URL, sets headers, POSTs JSON, and critically handles:
+
+429 rate limits with exponential backoff (500→1000→2000→4000ms, max 4 retries). Yango doesn't send Retry-After, so it's hard-coded.
+Error wrapping into a typed YangoApiError that captures status, code, Yango's message, and the x-yarequestid (vital for support tickets).
+The endpoints they actually use (all cursor- or offset-paginated, and the client always walks all pages internally so callers get a complete array):
+
+listCompletedOrders(driverId, from, to) → the rides. This is the core one for points. Filters statuses: ["complete"] and a time window.
+listDriverProfiles(driverIds?) → one call returns driver + car + balance + status. Used to classify taxi vs bike from car.category[].
+listDriverTransactions, getSupplyHours → secondary signals.
+Pagination has two flavors they handle: cursor-based (orders/transactions: loop until no cursor) and offset-based (driver profiles: offset += limit until a short page). The profiles loop sleeps 2s between pages to avoid hammering the rate limit.
+
+Timezone helper: nepalDayBounds() — all date math is anchored to Nepal time (+05:45). This matters a lot; see below.
+
+Layer 2a — Per-rider sync (syncRider.ts)
+syncRiderRange(db, yango, riderId, startDate, endDate) is the single workhorse (a "today" shorthand just calls it with the same start/end). The flow:
+
+Load the rider, short-circuit test/demo accounts (return a zeroed result, never call the API).
+Resolve the right credentials for that rider's "park" (fleet) — resolveYangoForPark(rider.park) (more on multi-tenancy below).
+ONE Yango call for the entire date range (not a per-day loop) → all completed orders.
+Group orders by Nepal-local date, aggregate rides/income/distance.
+Convert to points: each ride = round(fare in NPR) points.
+Write idempotently:
+daily_ride_logs — batched upsert (ON CONFLICT DO UPDATE), one round-trip.
+point_transactions — insert with ON CONFLICT DO NOTHING on (rider, sourceType, sourceId). This dedup key is the key to safety: re-syncing the same range is a no-op.
+Recompute the wallet by summing transactions (filtered by an "anchor" date = when the rider first logged in).
+Update the leaderboard for each touched monthly cycle — but skip "frozen" (closed) historical cycles.
+The reusable principles here:
+
+Idempotency via a natural unique key — re-running never double-counts. This is the single most important pattern.
+One API call per sync window, then fan out to local writes — minimizes external calls.
+Derived data is recomputed, not incremented — the wallet is re-summed from the ledger, so it self-heals.
+Timezone-correct bucketing — rides are grouped by local day, computed explicitly, not by relying on DB timezone.
+Layer 2b — Fleet-wide orchestration (fleetSync.ts)
+This is the production-grade batch layer that syncs everyone nightly. Worth copying wholesale:
+
+DB-backed job records (fleet_sync_jobs) — every run is a row with status, counts, timing. Plus per-rider attempt rows (fleet_sync_rider_attempts) for a full audit trail.
+Mutex — at most one active job (pending/running/retrying); a second trigger just returns the existing job. No parallel stampedes.
+Two passes — main sweep, then a retry pass for failures after a 30s cooldown (handles transient 429s/timeouts).
+Throttle — 400ms between riders to stay under Yango's ~2.5 RPS limit.
+Eligibility filter — only active, linked (contractor_id not null), non-test, logged-in riders. Skips wasted calls.
+Crash recovery — on boot, any job stuck in running (because the server died mid-sync) is marked aborted so the mutex doesn't block forever.
+Batch optimization — per-rider sync skips the expensive leaderboard re-rank; the fleet job does one re-rank per cycle at the very end (turns ~10s/rider into ~1s/rider).
+It's triggered by cron (nightly + at cycle-close) and manually by admins.
+Layer 3 — Multi-tenant credentials (yango.ts)
+Because there are two fleets ("parks"), each with its own Yango account:
+
+A per-park resolver caches one client per park, reads creds from env (YANGO_* and YANGO_*_2).
+A boot-initialized singleton (initYangoResolver(env) at startup) so the deep leaf functions can call resolveYangoForPark(rider.park) without threading a client through every function signature.
+isParkConfigured() lets the app run fine before the 2nd fleet exists.
+If you're replicating this elsewhere, the transferable checklist
+Thin client with one doFetch that centralizes auth, retries/backoff, typed errors, and auto-pagination.
+Idempotent writes keyed on the external record's ID — so syncs are always safe to re-run.
+One external call per window, then local fan-out.
+Recompute derived values from the ledger instead of incrementing.
+A job table + mutex + two-pass retry + crash recovery for the batch layer.
+Throttle + backoff tuned to the provider's (often undocumented) rate limit.
+Explicit timezone handling at the boundary.
+A short-circuit for test data so it never touches the real API.
+Want me to draw this as a diagram, or extract a reusable, provider-agnostic template (client + sync skeleton) you could drop into the other system? I can also point you at the exact request/response shapes for any endpoint.
+
+how are we tacklaing rate limiting in nightly syncs
+
+Rate limiting in the nightly fleet sync is handled with defense in depth — five layers, from the single request up to the whole batch. Here's each, with the actual numbers from the code:
+
+1. Per-request backoff (in the client — doFetch)
+The lowest layer. Every Yango call that returns 429 retries with exponential backoff: 500 → 1000 → 2000 → 4000 ms, capped at 8000ms, max 4 retries. Yango doesn't send a Retry-After header, so the delays are hard-coded. If all retries are exhausted it throws a typed YangoApiError. This means a brief rate-limit blip is invisible to the sync — it just slows down and recovers.
+
+2. Sequential processing (no concurrency)
+The fleet sweep is a plain for loop over riders — one rider at a time, awaited. There's never a burst of parallel requests. At any instant there's at most one in-flight Yango call (plus internal pagination), which keeps requests-per-second naturally bounded. This is deliberate — concurrency would be faster but would blow the rate limit instantly.
+
+3. Inter-rider throttle
+Between each rider, the loop sleeps THROTTLE_MS = 400ms. That paces the sweep to roughly ~2.5 requests/second, which is tuned to Yango's undocumented rate ceiling (~2.5 RPS, learned by testing). So even though backoff can save us, we mostly stay under the limit and rarely trigger it.
+
+4. Fewer calls by design
+The sync minimizes how many calls it even makes:
+
+One Yango call per rider for the whole date range — not a per-day loop. An 18-day backfill is still 1 call per rider, not 18.
+The vehicle-type (taxi/bike) refresh is ONE bulk call for the entire park per night (paginated internally), not one per rider. Inside that bulk call, pagination sleeps 2s between pages (200 drivers/page) — its own throttle.
+Eligibility filter trims the pool before any calls: only active, linked (contractor_id set), non-test, logged-in riders. Test/demo accounts are short-circuited entirely (never touch the API).
+5. Two-pass retry with cooldown
+After the main sweep, any riders that still failed (e.g. a few that exhausted their per-request backoff during a congested moment) are collected and retried once more after a 30s cooldown (RETRY_DELAY_MS). The cooldown lets any rate-limit window fully reset before the second attempt. Whatever still fails is recorded per-rider in fleet_sync_rider_attempts and the job ends as completed_with_errors rather than crashing.
+
+How it behaves end to end
+For ~1,500 riders: 1,500 × (400ms throttle + ~call latency) ≈ a steady, ~15–25 minute sweep that sits just under the rate ceiling, with backoff absorbing spikes and the retry pass mopping up stragglers. No single point fails the whole job — it degrades gracefully.
+
+Honest gaps / where it could be improved
+The 400ms throttle and the 429 backoff are independent — they don't share a token bucket, so under sustained pressure you can still occasionally 429 and rely on backoff. A shared rate limiter (token bucket) would be tighter.
+The throttle is fixed, not adaptive — it doesn't speed up when Yango is healthy or slow down preemptively when 429s start appearing. An adaptive limiter (AIMD-style) would squeeze more throughput safely.
+Backoff is per-call, so two riders hitting 429 back-to-back each pay the penalty independently.

@@ -1,0 +1,17 @@
+.git
+node_modules
+**/node_modules
+.pnpm-store
+dist
+**/dist
+.turbo
+.vercel
+*.log
+.env
+.env.*
+elebhar_dump.sql
+exports
+*.tar.gz
+attached_assets
+Dockerfile.dev
+docker-compose.yml

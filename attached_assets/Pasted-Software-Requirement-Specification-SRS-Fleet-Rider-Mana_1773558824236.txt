@@ -1,0 +1,545 @@
+Software Requirement Specification (SRS)
+Fleet & Rider Management System (FRMS)
+1. Introduction
+1.1 Purpose
+
+The purpose of this document is to define the requirements for the Fleet & Rider Management System (FRMS) designed for managing ride-hailing fleet operations in Nepal.
+
+The system will enable fleet owners and operations managers to:
+
+Manage vehicles and riders
+
+Assign riders to vehicles
+
+Track daily ride activity and earnings
+
+Monitor rider productivity
+
+Monitor vehicle performance
+
+Track financial reconciliation
+
+Generate reports and dashboards
+
+Operate using the Nepali calendar (Bikram Sambat)
+
+This document provides a complete description of system behavior, functional requirements, non-functional requirements, and system modules.
+
+1.2 Scope
+
+The Fleet & Rider Management System will support the following:
+
+Vehicle Management
+
+Maintain list of all vehicles
+
+Track vehicle usage and earnings
+
+Track maintenance and operational costs
+
+Rider Management
+
+Maintain list of all riders
+
+Track rider performance
+
+Track rider attendance
+
+Fleet Operations
+
+Assign riders to vehicles
+
+Track daily ride activities
+
+Monitor operational KPIs
+
+Financial Management
+
+Track earnings
+
+Track cash collection
+
+Track incentives and allowances
+
+Analytics
+
+Fleet performance dashboard
+
+Vehicle performance reports
+
+Rider performance reports
+
+Calendar Support
+
+Support Nepali Date (BS)
+
+Support English Date (AD)
+
+Allow filtering using both calendars
+
+1.3 Definitions
+Term	Description
+Fleet	Group of vehicles owned or managed by the company
+Rider	Driver operating a vehicle
+Assignment	Linking a rider to a vehicle
+Daily Log	Daily operational record of rider activity
+Acceptance Rate	Ratio of rides accepted to rides received
+Bonus Target	Target number of rides required to earn bonus
+Cash Check	Difference between expected and received cash
+2. Overall System Description
+2.1 System Overview
+
+The system will function as a web-based fleet management platform accessible through desktop and mobile devices.
+
+The platform will consist of:
+
+Fleet dashboard
+
+Vehicle management module
+
+Rider management module
+
+Assignment management module
+
+Daily operations module
+
+Financial tracking module
+
+Maintenance module
+
+Reporting and analytics module
+
+The system will store data centrally and provide real-time insights.
+
+2.2 User Classes
+System Owner
+
+Full access to all modules including dashboards, financials, and reports.
+
+Operations Manager
+
+Can manage riders, vehicles, assignments, and daily logs.
+
+Finance/Admin Staff
+
+Can manage cash reconciliation, expenses, salary calculations, and financial reports.
+
+Supervisor
+
+Can monitor daily rider performance and update operational records.
+
+Rider (Optional Portal)
+
+Can view performance, targets, and assigned vehicle.
+
+2.3 Operating Environment
+
+The system will run on:
+
+Web browser (Chrome, Edge, Safari)
+
+Mobile browsers (Android/iOS)
+
+Technology suggestions (for development):
+
+Frontend
+
+React / Vue / Angular
+
+Backend
+
+Node.js / Django / Laravel
+
+Database
+
+PostgreSQL / MySQL
+
+Calendar library
+
+Nepali date conversion support
+
+3. System Features
+3.1 Vehicle Management
+Description
+
+This module manages all vehicles in the fleet.
+
+Functional Requirements
+
+The system shall allow users to:
+
+Add vehicles
+
+Edit vehicle information
+
+Activate or deactivate vehicles
+
+Track vehicle usage
+
+Track vehicle maintenance
+
+View vehicle performance
+
+Vehicle Data Fields
+
+Vehicle ID
+Vehicle Number
+Plate Number
+Vehicle Type
+Brand
+Model
+Manufacture Year
+Color
+Purchase Date
+Purchase Cost
+Battery Details
+Insurance Expiry
+Tax Expiry
+Service Due Date
+Odometer Reading
+Vehicle Status (Active / Maintenance / Inactive)
+Assigned Rider
+Location/Branch
+
+3.2 Rider Management
+Description
+
+Maintains all rider profiles and employment records.
+
+Functional Requirements
+
+The system shall allow users to:
+
+Add rider profiles
+
+Edit rider information
+
+Activate or deactivate riders
+
+Track rider documents
+
+Track rider performance
+
+Rider Data Fields
+
+Rider ID
+Full Name
+Phone Number
+Secondary Phone
+Citizenship Number
+License Number
+License Expiry Date
+Address
+Emergency Contact
+Joining Date
+Employment Type
+Salary Structure
+Monthly Salary
+Daily Ride Target
+Assigned Supervisor
+Security Deposit
+Bank Account Details
+
+3.3 Rider-Vehicle Assignment
+Description
+
+Manages assignment of riders to vehicles.
+
+Functional Requirements
+
+The system shall allow users to:
+
+Assign rider to vehicle
+
+Change assignment
+
+Track assignment history
+
+Prevent duplicate assignments
+
+Assignment Fields
+
+Assignment ID
+Rider ID
+Vehicle ID
+Assignment Start Date
+Assignment End Date
+Shift Type
+Assignment Status
+
+3.4 Daily Operations Tracking
+Description
+
+Tracks daily rider activity.
+
+Functional Requirements
+
+The system shall allow users to:
+
+Record daily rider logs
+
+Record ride statistics
+
+Record income and expenses
+
+Calculate performance metrics
+
+Daily Log Fields
+
+Nepali Date
+English Date
+Rider
+Vehicle
+Check-in Time
+Check-out Time
+Total Time Online
+Ride Hours
+Total Rides Received
+Rides Completed
+Acceptance Rate
+Bonus Target Completion
+Total Ride Distance
+Total App Cash
+Goal Bonus
+Promotion Bonus
+Total Income
+Cash Given by Driver
+Cash Transferred Online
+Cash Check Difference
+Daily Allowance
+Additional Expenses
+Remarks
+
+3.5 Attendance Management
+Description
+
+Tracks rider attendance.
+
+Functional Requirements
+
+The system shall allow users to:
+
+Record attendance
+
+Track leave
+
+Track working hours
+
+Attendance Types
+
+Present
+Absent
+Leave
+Holiday
+Half Day
+
+3.6 Financial Management
+Description
+
+Tracks earnings, allowances, and reconciliations.
+
+Functional Requirements
+
+The system shall:
+
+Record daily earnings
+
+Record rider deposits
+
+Track bonuses
+
+Track allowances
+
+Calculate net earnings
+
+Financial Data Fields
+
+App Earnings
+Online Transfers
+Bonuses
+Allowances
+Expenses
+Cash Deposited
+Cash Difference
+
+3.7 Maintenance Management
+Description
+
+Tracks vehicle maintenance.
+
+Functional Requirements
+
+The system shall allow users to:
+
+Record maintenance activities
+
+Schedule maintenance
+
+Track maintenance costs
+
+Maintenance Types
+
+Battery Service
+Tire Replacement
+Brake Service
+Electrical Repair
+Accident Repair
+
+3.8 Dashboard and Analytics
+Fleet Dashboard
+
+Displays:
+
+Total Vehicles
+Active Vehicles
+Inactive Vehicles
+Active Riders
+Total Rides Today
+Total Income Today
+Total Income This Month
+Average Rides per Rider
+Average Income per Vehicle
+
+Rider Dashboard
+
+Displays:
+
+Rider Attendance
+Total Rides Completed
+Acceptance Rate
+Average Rides per Day
+Target Achievement
+
+Vehicle Dashboard
+
+Displays:
+
+Total Earnings per Vehicle
+Total Distance
+Utilization Rate
+Maintenance Cost
+
+4. Reporting Requirements
+
+The system shall generate reports including:
+
+Daily Fleet Report
+Daily Rider Report
+Vehicle Performance Report
+Monthly Fleet Summary
+Rider Salary Report
+Maintenance Report
+Cash Reconciliation Report
+Underperforming Rider Report
+Vehicle Profitability Report
+
+Reports shall support:
+
+Export to Excel
+Export to PDF
+Filtering by date, rider, or vehicle
+
+5. Nepali Calendar Support
+
+The system must support Bikram Sambat (BS).
+
+Features:
+
+Display Nepali date
+
+Convert BS to AD automatically
+
+Filter reports using Nepali month
+
+Store internal data in AD format
+
+Display BS format to users
+
+Example months:
+
+Baisakh
+Jestha
+Ashadh
+Shrawan
+Bhadra
+Ashwin
+Kartik
+Mangsir
+Poush
+Magh
+Falgun
+Chaitra
+
+6. Non-Functional Requirements
+Performance
+
+System should support thousands of riders and vehicles.
+
+Availability
+
+System should operate 24/7.
+
+Security
+
+Role-based access control
+Encrypted login
+Activity logs
+
+Usability
+
+User interface should be mobile-friendly.
+
+Scalability
+
+System should support fleet expansion up to 1000+ vehicles.
+
+7. Database Entities
+
+Core database tables:
+
+Users
+Roles
+Riders
+Vehicles
+Assignments
+DailyLogs
+Attendance
+Earnings
+Expenses
+Maintenance
+Bonuses
+Payments
+Reports
+
+8. System Constraints
+
+Internet connection required
+
+Data accuracy depends on manual entry
+
+Integration with ride platforms depends on API availability
+
+9. Future Enhancements
+
+Potential future features:
+
+Mobile App for Riders
+GPS Vehicle Tracking
+Automatic Ride Data Integration
+AI-based performance analytics
+Automated payroll generation
+Live fleet monitoring
+
+10. MVP (Minimum Viable Product)
+
+The first version of the system should include:
+
+Vehicle Management
+Rider Management
+Rider-Vehicle Assignment
+Daily Operations Tracking
+Basic Dashboard
+Nepali Date Support
+Excel Export
+
+Advanced financial and analytics modules can be added later.

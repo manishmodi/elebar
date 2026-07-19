@@ -1,0 +1,39 @@
+{
+  "name": "@workspace/api-server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "NODE_ENV=development tsx ./src/index.ts",
+    "build": "tsx ./build.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "seed:admin": "tsx ./src/seed-admin.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.726.0",
+    "@types/pg": "^8.18.0",
+    "@vercel/blob": "^2.5.0",
+    "@workspace/api-zod": "workspace:*",
+    "@workspace/db": "workspace:*",
+    "bcryptjs": "^3.0.3",
+    "connect-pg-simple": "^10.0.0",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2",
+    "drizzle-orm": "catalog:",
+    "express": "^5",
+    "express-session": "^1.19.0",
+    "pg": "^8.20.0",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^3.0.0",
+    "@types/connect-pg-simple": "^7.0.3",
+    "@types/cookie-parser": "^1.4.10",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/express-session": "^1.18.2",
+    "@types/node": "catalog:",
+    "esbuild": "^0.27.3",
+    "tsx": "catalog:"
+  }
+}

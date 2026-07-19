@@ -1,0 +1,298 @@
+I’ll design this as an Elebhar-ready performance model: daily scoring, rolling averages, tier classification, tomorrow’s target logic, and a workaround for the daily-log delay.Thought for 16sYes. You should build a Rider Performance Model inside Elebhar that works in two layers:
+
+
+Final performance = based on completed daily logs
+
+
+Live/provisional performance = based on today’s attendance/check-in because yesterday’s logs are entered late
+
+
+
+Rider Performance Model
+1. Metrics to Track Per Rider
+For selected period, calculate:
+Productivity
+AvgRides/Day=TotalCompletedRides÷PresentDaysAvg Rides/Day = Total Completed Rides ÷ Present DaysAvgRides/Day=TotalCompletedRides÷PresentDays
+Acceptance Rate
+AvgAcceptance=Avg(AcceptanceRate)Avg Acceptance = Avg(Acceptance Rate)AvgAcceptance=Avg(AcceptanceRate)
+Target Hit Rate
+TargetHit%=TargetHitDays÷PresentDays×100Target Hit \% = Target Hit Days ÷ Present Days × 100TargetHit%=TargetHitDays÷PresentDays×100
+Revenue
+AvgRevenue/Day=TotalIncome÷PresentDaysAvg Revenue/Day = Total Income ÷ Present DaysAvgRevenue/Day=TotalIncome÷PresentDays
+Attendance
+Attendance%=PresentDays÷ExpectedWorkingDays×100Attendance \% = Present Days ÷ Expected Working Days × 100Attendance%=PresentDays÷ExpectedWorkingDays×100
+Absence
+AbsentDays=ExpectedDays−PresentDaysAbsent Days = Expected Days - Present DaysAbsentDays=ExpectedDays−PresentDays
+
+2. Rider Score Formula
+Use a 100-point score.
+MetricWeightAvg rides/day35Target hit rate25Attendance %20Acceptance rate10Revenue/day10
+Example score logic
+RiderScore=RidesScore+TargetScore+AttendanceScore+AcceptanceScore+RevenueScoreRider Score = Rides Score + Target Score + Attendance Score + Acceptance Score + Revenue ScoreRiderScore=RidesScore+TargetScore+AttendanceScore+AcceptanceScore+RevenueScore
+
+3. Rider Tier Classification
+TierScoreMeaningActionA+90–100ExcellentBonus, retain, future team leaderA80–89StrongNormal bonusB65–79AverageMonitorC50–64WeakWarning + coachingDbelow 50ProblemReplace or probation
+
+4. Suggested Tier Rules for Your Business
+Because your target is around 25–26 rides/day, classify like this:
+A+ Rider
+
+
+Avg rides/day: 25+
+
+
+Target hit rate: 80%+
+
+
+Attendance: 90%+
+
+
+Good acceptance rate
+
+
+A Rider
+
+
+Avg rides/day: 22–24
+
+
+Target hit rate: 60–80%
+
+
+Consistent attendance
+
+
+B Rider
+
+
+Avg rides/day: 18–21
+
+
+Needs improvement but usable
+
+
+C Rider
+
+
+Avg rides/day: 15–17
+
+
+Near break-even only
+
+
+D Rider
+
+
+Below 15 rides/day
+
+
+Dangerous for profit
+
+
+
+5. Tomorrow Target Logic
+Each rider should get a dynamic target for tomorrow, not the same target blindly.
+Formula idea
+Rider TypeTomorrow TargetA+27–30 ridesA25–26 ridesB22–24 ridesC20–22 ridesDreview / probation
+Also consider yesterday’s performance:
+
+
+If rider missed target by 1–2 rides → same target tomorrow
+
+
+If missed badly → reduce target slightly but flag
+
+
+If hit target 3 days in a row → increase target
+
+
+If absent → supervisor review before assignment
+
+
+
+6. Solving the Daily Log Delay Problem
+This is important.
+Since yesterday’s logs are entered after riders already go out today, you should not wait for final logs to manage today.
+Use two statuses:
+A. Finalized Performance
+Based on completed daily logs.
+Use for:
+
+
+salary
+
+
+incentives
+
+
+official tier
+
+
+monthly reports
+
+
+B. Provisional Daily Control
+Based on today’s attendance/check-in data.
+Use for:
+
+
+today’s deployment
+
+
+supervisor alerts
+
+
+rider follow-up
+
+
+tomorrow planning
+
+
+
+7. Practical Workflow
+Morning
+Before riders start:
+
+
+use last finalized data
+
+
+assign today’s target
+
+
+show rider tier
+
+
+flag risky riders
+
+
+During day
+Track from attendance/guard log:
+
+
+rider checked in or not
+
+
+vehicle assigned
+
+
+odometer in/out
+
+
+expected working status
+
+
+Evening / Next day
+When daily logs are entered:
+
+
+finalize yesterday’s score
+
+
+update tier
+
+
+update tomorrow recommendation
+
+
+
+8. Dashboard Layout
+Rider Performance Page
+Top cards:
+
+
+Avg rides/day
+
+
+Target hit %
+
+
+Attendance %
+
+
+Avg acceptance rate
+
+
+Avg revenue/day
+
+
+Rider tier
+
+
+Table columns:
+
+
+Rider name
+
+
+Present days
+
+
+Absent days
+
+
+Total rides
+
+
+Avg rides/day
+
+
+Target hit/miss count
+
+
+Acceptance rate
+
+
+Revenue earned
+
+
+Avg income/day
+
+
+Current tier
+
+
+Tomorrow target
+
+
+Action needed
+
+
+
+9. Auto Alerts
+Add alerts like:
+
+
+Target missed 3 days in a row
+
+
+Avg rides below 18
+
+
+Absent 2+ days in 7 days
+
+
+Acceptance rate below threshold
+
+
+Revenue below break-even
+
+
+Tier dropped from A to B/C
+
+
+Candidate for bonus
+
+
+Candidate for replacement
+
+
+
+10. Most Important Output
+Every rider should have a daily decision label:
+LabelMeaningRewardHigh performerMaintainStable performerCoachNeeds improvementWarnRepeated low performanceReplaceHurting profitability
+
+Final Recommendation
+Build the model around this rule:
+Attendance tells you who showed up. Daily logs tell you who performed. The rider score tells you who deserves the scooter tomorrow.
+This will make Elebhar not just a reporting system, but a rider control and scaling system.
